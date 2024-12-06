@@ -59,36 +59,7 @@ export default function Component() {
       setHighScores(JSON.parse(storedHighScores))
     }
   }, [])
-  useEffect(() => {
-    if (gameState === 'intro' && introVideoRef.current) {
-      introVideoRef.current.play().catch(error => {
-        console.error('Error autoplaying intro video:', error)
-        // Fallback: show play button or message
-      })
-    }
-  }, [gameState])
-  
-  useEffect(() => {
-    if (gameState === 'win-video' && winVideoRef.current) {
-      winVideoRef.current.play().catch(error => {
-        console.error('Error autoplaying win video:', error)
-        // Fallback: show play button or message
-      })
-    }
-  }, [gameState])
-  
-  useEffect(() => {
-    if (showLosePopup && loseVideoRef.current) {
-      loseVideoRef.current.play().catch(error => {
-        console.error('Error autoplaying lose video:', error)
-        // Fallback: show play button or message
-      })
-      if (loseAudioRef.current) {
-        loseAudioRef.current.play().catch(error => console.error('Error playing lose audio:', error))
-      }
-    }
-  }, [showLosePopup])
-  
+
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (gameState === 'playing' && timer > 0) {
@@ -101,11 +72,38 @@ export default function Component() {
     return () => clearInterval(interval)
   }, [gameState, timer])
 
-  const handleStartGame = () => {
-    setGameState('intro')
-    if (introVideoRef.current) {
+  useEffect(() => {
+    if (gameState === 'intro' && introVideoRef.current) {
       introVideoRef.current.play().catch(error => console.error('Error playing intro video:', error))
     }
+  }, [gameState])
+
+  useEffect(() => {
+    if (gameState === 'win-video' && winVideoRef.current) {
+      winVideoRef.current.play().catch(error => console.error('Error playing win video:', error))
+    }
+  }, [gameState])
+
+  useEffect(() => {
+    if (showLosePopup) {
+      if (loseVideoRef.current) {
+        loseVideoRef.current.play().catch(error => console.error('Error playing lose video:', error))
+      }
+      if (loseAudioRef.current) {
+        loseAudioRef.current.play().catch(error => console.error('Error playing lose audio:', error))
+      }
+    }
+  }, [showLosePopup])
+
+  useEffect(() => {
+    if (gameState === 'playing') {
+      resetGame() // This ensures the game starts with proper values after the intro video
+    }
+  }, [gameState])
+
+
+  const handleStartGame = () => {
+    setGameState('intro')
   }
 
   const handleStartMission = () => {
@@ -114,7 +112,7 @@ export default function Component() {
   }
 
   const resetGame = () => {
-    setAvailableResources(Math.floor(Math.random() * 20) + 10 + (level * 5))
+    setAvailableResources(Math.max(1, Math.floor(Math.random() * 16) + 3)) // Ensures minimum of 1 powerup
     setAllocations([0, 0, 0])
     setMessage('')
     setShowLosePopup(false)
@@ -131,7 +129,7 @@ export default function Component() {
 
   const checkAllocation = () => {
     const totalAllocation = allocations.reduce((sum, current) => sum + current, 0)
-    if (totalAllocation > availableResources) {
+    if (totalAllocation > availableResources || allocations.some(allocation => allocation === 0)) {
       handleGameOver()
     } else {
       handleLevelComplete(totalAllocation)
@@ -140,7 +138,9 @@ export default function Component() {
 
   const handleGameOver = () => {
     setGameState('lost')
-    setMessage(`Deadlock formed! You allocated ${allocations.reduce((a, b) => a + b, 0)} power-ups, but only ${availableResources} were available. Mission failed.`)
+    setMessage(allocations.some(allocation => allocation === 0)
+    ? 'Mission failed! All heroes must have at least one power-up!'
+    : `Deadlock formed! You allocated ${allocations.reduce((a, b) => a + b, 0)} power-ups, but only ${availableResources} were available.`)
     updateHighScores(score)
     setShowLosePopup(true)
     setLevel(1)
@@ -157,10 +157,6 @@ export default function Component() {
     const levelScore = calculateScore(totalAllocation)
     setScore((prevScore) => prevScore + levelScore)
     setMessage(`Level ${level} complete! You allocated ${totalAllocation} out of ${availableResources} power-ups. Score: ${levelScore}`)
-    
-    if (winVideoRef.current) {
-      winVideoRef.current.play().catch(error => console.error('Error playing win video:', error))
-    }
     
     confetti({
       particleCount: 100,
@@ -220,21 +216,18 @@ export default function Component() {
 
   if (gameState === 'intro') {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black">
         <video
           ref={introVideoRef}
-          className="w-full max-w-4xl rounded-lg mb-8"
-          controls // Add controls
+          className="w-full h-full object-cover"
           onEnded={() => setGameState('playing')}
-          onError={(e) => console.error("Error playing intro video:", e)}
         >
           <source src="/intro.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
         </video>
         <Button
           onClick={handleStartMission}
           size="lg"
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-blue-600 hover:bg-blue-700 text-white"
         >
           Start Mission
         </Button>
@@ -244,18 +237,15 @@ export default function Component() {
 
   if (gameState === 'win-video') {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black">
         <video
           ref={winVideoRef}
-          className="w-full max-w-4xl rounded-lg mb-8"
-          controls // Add controls
+          className="w-full h-full object-cover"
           onEnded={() => setGameState('won')}
-          onError={(e) => console.error("Error playing win video:", e)}
         >
           <source src="/win.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
         </video>
-        <div className="flex gap-4">
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-4">
           <Button
             onClick={startNewMission}
             size="lg"
@@ -444,13 +434,21 @@ export default function Component() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+              className="fixed inset-0 bg-black flex items-center justify-center z-50"
             >
+              <video
+                ref={loseVideoRef}
+                className="absolute inset-0 w-full h-full object-cover"
+                loop
+              >
+                <source src="/explosion.mp4" type="video/mp4" />
+              </video>
+              <audio ref={loseAudioRef} src="/sounds/lose.mp3" />
               <motion.div
                 initial={{ scale: 0.8, y: 50 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.8, y: 50 }}
-                className="bg-gray-800 p-8 rounded-lg max-w-2xl w-full m-4"
+                className="bg-gray-800 bg-opacity-90 p-8 rounded-lg max-w-2xl w-full m-4 relative z-10"
               >
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold text-red-500">Mission Failed</h2>
@@ -463,16 +461,6 @@ export default function Component() {
                     <X className="h-6 w-6" />
                   </Button>
                 </div>
-                <video
-                  ref={loseVideoRef}
-                  className="w-full rounded-lg mb-4"
-                  autoPlay
-                  loop
-                >
-                  <source src="/explosion.mp4" type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-                <audio ref={loseAudioRef} src="/sounds/lose.mp3" />
                 <p className="text-gray-300 mb-6">{message}</p>
                 <p className="text-gray-300 mb-6">Final Score: {score}</p>
                 <div className="flex justify-center">
@@ -515,7 +503,7 @@ export default function Component() {
                   <li>The Justice League needs your help to allocate power-ups!</li>
                   <li>You have 60 seconds to complete each level.</li>
                   <li>Use the + and - buttons to give each hero their share of power-ups.</li>
-                  <li>Be careful! If you allocate more than the available power-ups, a deadlock will form.</li>
+                  <li>Be careful! You'll lose if you allocate more than the available power-ups or if any hero gets zero power-ups.</li>
                   <li>Hit the "Power Up Squad!" button when you're ready to check your allocation.</li>
                   <li>Avoid deadlocks to lead the Justice League to victory!</li>
                   <li>Complete levels to increase your score and face tougher challenges.</li>
