@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, CheckCircle2, Plus, Minus, X, Volume2, VolumeX, Zap, Trophy, Play } from "lucide-react"
+import { CheckCircle2, Plus, Minus, X, Volume2, VolumeX, Zap, Trophy, Play } from 'lucide-react'
 
 const heroes = [
   { 
@@ -70,7 +70,7 @@ export default function Component() {
       handleGameOver()
     }
     return () => clearInterval(interval)
-  }, [gameState, timer])
+  }, [gameState, timer, handleGameOver])
 
   useEffect(() => {
     if (gameState === 'intro' && introVideoRef.current) {
@@ -461,7 +461,11 @@ export default function Component() {
                     <X className="h-6 w-6" />
                   </Button>
                 </div>
-                <p className="text-gray-300 mb-6">{message}</p>
+                <p className="text-gray-300 mb-6">
+                  {allocations.some(allocation => allocation === 0)
+                    ? 'Mission failed! All heroes must have at least one power-up!'
+                    : `Deadlock formed! You allocated ${allocations.reduce((a, b) => a + b, 0)} power-ups, but only ${availableResources} were available.`}
+                </p>
                 <p className="text-gray-300 mb-6">Final Score: {score}</p>
                 <div className="flex justify-center">
                   <Button onClick={startNewMission} size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
